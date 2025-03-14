@@ -144,11 +144,17 @@ app.post('/profile', async (req, res) => {
     }
 });
 
-// events
+// event create operation
 app.post('/allEvents',async(req,res)=>{
   const newEvents = req.body;
-  console.log(newEvents)
+ 
   const result = await eventCollection.insertOne(newEvents);
+  res.send(result)
+})
+// read operation
+app.get('/allEvents', async(req,res)=>{
+  const events = eventCollection.find();
+  const result = await events.toArray();
   res.send(result)
 })
 
