@@ -28,6 +28,7 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     // await client.connect();
     const userCollection = client.db("volunteerDB").collection("users");
+    const eventCollection= client.db("volunteerDB").collection("events")
 
     // JWT Secret Key
     const JWT_SECRET = process.env.JWT_SECRET;
@@ -142,6 +143,14 @@ app.post('/profile', async (req, res) => {
         return res.status(500).json({ status: false, message: "Something went wrong", error: error.message });
     }
 });
+
+// events
+app.post('/allEvents',async(req,res)=>{
+  const newEvents = req.body;
+  console.log(newEvents)
+  const result = await eventCollection.insertOne(newEvents);
+  res.send(result)
+})
 
 
 
