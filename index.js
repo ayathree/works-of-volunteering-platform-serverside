@@ -28,7 +28,8 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     // await client.connect();
     const userCollection = client.db("volunteerDB").collection("users");
-    const eventCollection= client.db("volunteerDB").collection("events")
+    const eventCollection= client.db("volunteerDB").collection("events");
+    const postCollection = client.db("volunteerDB").collection("posts");
 
     // JWT Secret Key
     const JWT_SECRET = process.env.JWT_SECRET;
@@ -157,6 +158,15 @@ app.get('/allEvents', async(req,res)=>{
   const result = await events.toArray();
   res.send(result)
 })
+
+//community
+ app.post('/allPosts',async(req,res)=>{
+  const newPost = req.body;
+  console.log(newPost)
+  const result= await postCollection.insertOne(newPost);
+  res.send(result)
+ })
+
 
 
 
