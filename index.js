@@ -167,6 +167,14 @@ app.get('/allEvents', async(req,res)=>{
   res.send(result)
  })
 
+//  read operation for community post
+app.get('/allPosts', async(req,res)=>{
+  const posts = postCollection.find();
+  const result = await posts.toArray();
+  res.send(result)
+})
+
+
 
 
 
