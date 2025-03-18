@@ -78,7 +78,7 @@ app.post("/login", async (req, res) => {
   }
 
   const token = jwt.sign({id:user._id, email: user.email }, JWT_SECRET, { expiresIn: "7d" });
-  console.log("Generated Token:", token);
+  // console.log("Generated Token:", token);
 
   res.json({
       message: "Login successful",
@@ -93,14 +93,14 @@ app.post('/profile', async (req, res) => {
     try {
         // Extract Token
         const token = req.headers?.authorization?.split(" ")[1];
-        console.log("Received Token:", token);
+        // console.log("Received Token:", token);
         if (!token) {
             return res.status(401).json({ status: false, message: "Access Denied" });
         }
 
         // Verify Token
         const decoded = jwt.verify(token, JWT_SECRET);
-        console.log("Decoded Token:", decoded);
+        // console.log("Decoded Token:", decoded);
         if (!decoded?.id) {
             return res.status(400).json({ status: false, message: "Invalid Token" });
         }
@@ -145,7 +145,7 @@ app.post('/allPosts', async (req, res) => {
     try {
         // Extract token from headers
         const token = req.headers?.authorization?.split(" ")[1];
-        console.log("Received Token:", token);
+        // console.log("Received Token:", token);
 
         if (!token) {
             return res.status(401).json({ status: false, message: "Access Denied: No Token" });
@@ -153,7 +153,7 @@ app.post('/allPosts', async (req, res) => {
 
         // Verify and decode the token for allPost
         const decoded = jwt.verify(token, JWT_SECRET);
-        console.log("Decoded Token:", decoded);
+        // console.log("Decoded Token:", decoded);
         if (!decoded?.id) {
             return res.status(400).json({ status: false, message: "Invalid Token" });
         }
@@ -198,12 +198,60 @@ app.get('/allPosts', async(req,res)=>{
 })
 
 // private message
-app.post('/allMessages',async(req,res)=>{
-  const newMessages = req.body;
- 
-  const result = await messageCollection.insertOne(newMessages);
-  res.send(result)
-})
+app.post('/allMessages', async (req, res) => {
+  try {
+      // Extract token from headers
+      const token = req.headers?.authorization?.split(" ")[1];
+      if (!token) {
+          return res.status(401).json({ status: false, message: "Access Denied: No Token" });
+      }
+
+      // Verify and decode the token
+      const decoded = jwt.verify(token, JWT_SECRET);
+      if (!decoded?.id) {
+          return res.status(400).json({ status: false, message: "Invalid Token" });
+      }
+
+      // Find user by decoded id
+      const user = await userCollection.findOne({ _id: new ObjectId(decoded.id) });
+      if (!user) {
+          return res.status(404).json({ status: false, message: "User not found" });
+      }
+
+      // Extract data from request body
+      const { postId, message, creatorId } = req.body;
+
+      
+      // Prevent post creator from replying to their own post
+      if (creatorId === user._id.toString()) {
+          return res.status(403).json({ status: false, message: "You cannot reply to your own post." });
+      }
+
+      // Save the new message
+      const newMessage = {
+          postId: new ObjectId(postId),
+          senderId: user._id,
+          message,
+          creatorId,
+          createdAt: new Date(),
+      };
+
+      const result = await messageCollection.insertOne(newMessage);
+
+      res.status(201).json({
+          status: true,
+          message: "Message sent successfully",
+          data: result.insertedId,
+      });
+
+  } catch (error) {
+      console.error(" Error sending message: ", error);
+      res.status(500).json({ status: false, message: "Internal Server Error" });
+  }
+});
+
+
+
 
 
 
