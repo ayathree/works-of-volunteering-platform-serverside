@@ -30,34 +30,11 @@ async function run() {
     const userCollection = client.db("volunteerDB").collection("users");
     const eventCollection= client.db("volunteerDB").collection("events");
     const postCollection = client.db("volunteerDB").collection("posts");
+    const messageCollection= client.db("volunteerDB").collection("messages")
 
     // JWT Secret Key
     const JWT_SECRET = process.env.JWT_SECRET;
 
-  // Middleware to Verify Token
-// const verifyToken = (req, res, next) => {
-//   const token = req.headers.authorization?.split(" ")[1]; // Extract Token
-//   if (!token) {
-//       return res.status(401).json({ message: "Unauthorized - No token" });
-//   }
-
-//   jwt.verify(token, JWT_SECRET, (err, decoded) => {
-//       if (err) {
-//           return res.status(403).json({ message: "Forbidden - Invalid token" });
-//       }
-//       req.user = decoded; // Attach user data
-//       next();
-//   });
-// };
-
-// Middleware to Verify Admin Role
-// const verifyAdmin = async (req, res, next) => {
-//   const user = await userCollection.findOne({ email: req.user.email });
-//   if (!user || user.role !== "admin") {
-//       return res.status(403).json({ message: "Forbidden - Admins only" });
-//   }
-//   next();
-// };
 
 // **Register a New User**
 app.post("/users", async (req, res) => {
@@ -101,6 +78,7 @@ app.post("/login", async (req, res) => {
   }
 
   const token = jwt.sign({id:user._id, email: user.email }, JWT_SECRET, { expiresIn: "7d" });
+  console.log("Generated Token:", token);
 
   res.json({
       message: "Login successful",
@@ -115,12 +93,14 @@ app.post('/profile', async (req, res) => {
     try {
         // Extract Token
         const token = req.headers?.authorization?.split(" ")[1];
+        console.log("Received Token:", token);
         if (!token) {
             return res.status(401).json({ status: false, message: "Access Denied" });
         }
 
         // Verify Token
         const decoded = jwt.verify(token, JWT_SECRET);
+        console.log("Decoded Token:", decoded);
         if (!decoded?.id) {
             return res.status(400).json({ status: false, message: "Invalid Token" });
         }
@@ -160,12 +140,55 @@ app.get('/allEvents', async(req,res)=>{
 })
 
 //community
- app.post('/allPosts',async(req,res)=>{
-  const newPost = req.body;
-  console.log(newPost)
-  const result= await postCollection.insertOne(newPost);
-  res.send(result)
- })
+
+app.post('/allPosts', async (req, res) => {
+    try {
+        // Extract token from headers
+        const token = req.headers?.authorization?.split(" ")[1];
+        console.log("Received Token:", token);
+
+        if (!token) {
+            return res.status(401).json({ status: false, message: "Access Denied: No Token" });
+        }
+
+        // Verify and decode the token for allPost
+        const decoded = jwt.verify(token, JWT_SECRET);
+        console.log("Decoded Token:", decoded);
+        if (!decoded?.id) {
+            return res.status(400).json({ status: false, message: "Invalid Token" });
+        }
+
+        // Find user by decoded id
+        const user = await userCollection.findOne({ _id: new ObjectId(decoded.id) });
+        if (!user) {
+            return res.status(404).json({ status: false, message: "User not found" });
+        }
+
+        
+
+        // Get post data from the request body
+        const { about, category, location, urgency } = req.body;
+
+        // Create new post object with user ID
+        const newPost = {
+            about,
+            category,
+            location,
+            urgency,
+            creatorId: user._id, // Save the user ID from the token
+            createdAt: new Date(),
+        };
+
+        // Insert post into the database
+        const result = await postCollection.insertOne(newPost);
+
+        res.status(201).json({ status: true, message: "Post created successfully", data: result });
+
+    } catch (error) {
+        console.error("Error creating post: ", error);
+        res.status(500).json({ status: false, message: "Internal Server Error" });
+    }
+});
 
 //  read operation for community post
 app.get('/allPosts', async(req,res)=>{
@@ -174,28 +197,15 @@ app.get('/allPosts', async(req,res)=>{
   res.send(result)
 })
 
+// private message
+app.post('/allMessages',async(req,res)=>{
+  const newMessages = req.body;
+ 
+  const result = await messageCollection.insertOne(newMessages);
+  res.send(result)
+})
 
 
-
-
-
-// **Get All Users (Protected: Admin Only)**
-// app.get("/users", verifyToken, verifyAdmin, async (req, res) => {
-//   const result = await userCollection.find().toArray();
-//   res.send(result);
-// });
-
-// **Get User by Email (Protected)**
-// app.get("/allUsers/:email", verifyToken, async (req, res) => {
-//   const email = req.params.email;
-//   const result = await userCollection.findOne({ email });
-//   res.send(result);
-// });
-
-// **Logout (Handled on Client-Side)**
-// app.post("/logout", (req, res) => {
-//   res.json({ message: "Logged out successfully" });
-// });
 
 
     // Send a ping to confirm a successful connection
