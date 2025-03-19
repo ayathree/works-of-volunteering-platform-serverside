@@ -216,11 +216,60 @@ app.get('/allEvents', async(req,res)=>{
 })
 
 // join button
-app.post('/addEvent', async(req,res)=>{
-    const newAdding = req.body;
-    const result = await addEventCollection.insertOne(newAdding);
-    res.send(result)
-})
+app.post('/addEvent', async (req, res) => {
+    try {
+        // Extract token from headers
+        const token = req.headers?.authorization?.split(" ")[1];
+        // console.log("Received Token:", token);
+
+        if (!token) {
+            return res.status(401).json({ status: false, message: "Access Denied: No Token" });
+        }
+
+        // Verify and decode the token for allPost
+        const decoded = jwt.verify(token, JWT_SECRET);
+        // console.log("Decoded Token:", decoded);
+        if (!decoded?.id) {
+            return res.status(400).json({ status: false, message: "Invalid Token" });
+        }
+
+        // Find user by decoded id
+        const user = await userCollection.findOne({ _id: new ObjectId(decoded.id) });
+        if (!user) {
+            return res.status(404).json({ status: false, message: "User not found" });
+        }
+        const { attenderId, eventCreatorId, eventId } = req.body;
+        console.log(req.body)
+    
+        // Check if user already joined
+        const existingEntry = await addEventCollection.findOne({ attenderId, eventId });
+        if (existingEntry) {
+            return res.status(400).json({ message: "You have already joined this event." });
+        }
+    
+        // Add new event entry
+        const result = await addEventCollection.insertOne({
+            attenderId: user._id,
+            eventCreatorId,
+            eventId,
+            joinedAt: new Date(),
+        });
+        console.log(result)
+    
+        res.status(201).json({ message: "Event joined successfully", result });
+        
+
+        
+     
+
+        
+
+    } catch (error) {
+        console.error("Error creating post: ", error);
+        res.status(500).json({ status: false, message: "Internal Server Error" });
+    } 
+});
+
 
 //community
 
