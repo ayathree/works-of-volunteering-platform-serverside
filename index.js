@@ -30,7 +30,8 @@ async function run() {
     const userCollection = client.db("volunteerDB").collection("users");
     const eventCollection= client.db("volunteerDB").collection("events");
     const postCollection = client.db("volunteerDB").collection("posts");
-    const messageCollection= client.db("volunteerDB").collection("messages")
+    const messageCollection= client.db("volunteerDB").collection("messages");
+    const addEventCollection=client.db("volunteerDB").collection("addEvents")
 
     // JWT Secret Key
     const JWT_SECRET = process.env.JWT_SECRET;
@@ -158,16 +159,67 @@ app.post('/profile', async (req, res) => {
 
 // event create operation
 app.post('/allEvents',async(req,res)=>{
-  const newEvents = req.body;
- 
-  const result = await eventCollection.insertOne(newEvents);
-  res.send(result)
+    try {
+        // Extract token from headers
+        const token = req.headers?.authorization?.split(" ")[1];
+        // console.log("Received Token:", token);
+
+        if (!token) {
+            return res.status(401).json({ status: false, message: "Access Denied: No Token" });
+        }
+
+        // Verify and decode the token for allPost
+        const decoded = jwt.verify(token, JWT_SECRET);
+        // console.log("Decoded Token:", decoded);
+        if (!decoded?.id) {
+            return res.status(400).json({ status: false, message: "Invalid Token" });
+        }
+
+        // Find user by decoded id
+        const user = await userCollection.findOne({ _id: new ObjectId(decoded.id) });
+        if (!user) {
+            return res.status(404).json({ status: false, message: "User not found" });
+        }
+
+        
+
+        // Get post data from the request body
+        const { title, description, date,time, category, location} = req.body;
+
+        // Create new post object with user ID
+        const newEvent = {
+            title,
+            description,
+            date,
+            time,
+            category,
+            location,
+            creatorId: user._id, // Save the user ID from the token
+            createdAt: new Date(),
+        };
+
+        // Insert post into the database
+        const result = await eventCollection.insertOne(newEvent);
+
+        res.status(201).json({ status: true, message: "Post created successfully", data: result });
+
+    } catch (error) {
+        console.error("Error creating post: ", error);
+        res.status(500).json({ status: false, message: "Internal Server Error" });
+    }
 })
 // read operation
 app.get('/allEvents', async(req,res)=>{
   const events = eventCollection.find();
   const result = await events.toArray();
   res.send(result)
+})
+
+// join button
+app.post('/addEvent', async(req,res)=>{
+    const newAdding = req.body;
+    const result = await addEventCollection.insertOne(newAdding);
+    res.send(result)
 })
 
 //community
