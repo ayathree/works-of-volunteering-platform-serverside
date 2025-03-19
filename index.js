@@ -91,39 +91,70 @@ app.post("/login", async (req, res) => {
 
 app.post('/profile', async (req, res) => {
     try {
-        // Extract Token
         const token = req.headers?.authorization?.split(" ")[1];
-        // console.log("Received Token:", token);
         if (!token) {
             return res.status(401).json({ status: false, message: "Access Denied" });
         }
 
-        // Verify Token
         const decoded = jwt.verify(token, JWT_SECRET);
-        // console.log("Decoded Token:", decoded);
         if (!decoded?.id) {
             return res.status(400).json({ status: false, message: "Invalid Token" });
         }
 
-        // Find User in Database
-        const user = await userCollection.findOne({ _id: new ObjectId(decoded.id) });
+        const userId = new ObjectId(decoded.id);
+
+        // Fetch user data
+        const user = await userCollection.findOne({ _id: userId });
         if (!user) {
             return res.status(400).json({ status: false, message: "User not found" });
         }
 
-        // Return User Data
         const userData = {
             id: user._id,
             name: user.name,
             email: user.email,
         };
 
-        return res.status(200).json({ status: true, message: "Profile Data", data: userData });
+        // Fetch posts created by user
+        const userPosts = await postCollection.find({ creatorId: userId }).toArray();
+        console.log("✅ User Posts: ", userPosts);
+
+        // Extract post IDs
+        const postIds = userPosts.map(post => post._id);
+        console.log("✅ Post IDs: ", postIds);
+
+
+        // Fetch replies on user's posts (excluding their own replies)
+        const userReplies = await messageCollection.find({
+            postId: { $in: postIds },
+            senderId: { $ne: userId }  // Ensure sender is not the post owner
+        }).toArray();
+        console.log("✅ User Replies: ", userReplies);
+
+
+
+        return res.status(200).json({
+            status: true,
+            message: "Profile Data",
+            data: {
+                ...userData,
+                posts: userPosts,
+                replies: userReplies
+            }
+        });
 
     } catch (error) {
+        console.error("❌ Error fetching profile: ", error);
         return res.status(500).json({ status: false, message: "Something went wrong", error: error.message });
     }
 });
+
+
+
+
+
+  
+
 
 // event create operation
 app.post('/allEvents',async(req,res)=>{
@@ -199,56 +230,67 @@ app.get('/allPosts', async(req,res)=>{
 
 // private message
 app.post('/allMessages', async (req, res) => {
-  try {
+    try {
       // Extract token from headers
       const token = req.headers?.authorization?.split(" ")[1];
       if (!token) {
-          return res.status(401).json({ status: false, message: "Access Denied: No Token" });
+        return res.status(401).json({ status: false, message: "Access Denied: No Token" });
       }
-
+  
       // Verify and decode the token
       const decoded = jwt.verify(token, JWT_SECRET);
       if (!decoded?.id) {
-          return res.status(400).json({ status: false, message: "Invalid Token" });
+        return res.status(400).json({ status: false, message: "Invalid Token" });
       }
-
+  
       // Find user by decoded id
       const user = await userCollection.findOne({ _id: new ObjectId(decoded.id) });
       if (!user) {
-          return res.status(404).json({ status: false, message: "User not found" });
+        return res.status(404).json({ status: false, message: "User not found" });
       }
-
+  
       // Extract data from request body
       const { postId, message, creatorId } = req.body;
-
-      
+  
+      // Validate required fields
+      if (!postId || !message || !creatorId) {
+        return res.status(400).json({ status: false, message: "Missing required fields" });
+      }
+  
+      // Find the corresponding post using postId
+      const post = await postCollection.findOne({ _id: new ObjectId(postId) });
+      if (!post) {
+        return res.status(404).json({ status: false, message: "Post not found" });
+      }
+  
       // Prevent post creator from replying to their own post
       if (creatorId === user._id.toString()) {
-          return res.status(403).json({ status: false, message: "You cannot reply to your own post." });
+        return res.status(403).json({ status: false, message: "You cannot reply to your own post." });
       }
-
+  
       // Save the new message
       const newMessage = {
-          postId: new ObjectId(postId),
-          senderId: user._id,
-          message,
-          creatorId,
-          createdAt: new Date(),
+        postId: post._id,      // Correct postId
+        senderId: user._id,    // User sending the message
+        message,
+        creatorId,             // Post creator
+        createdAt: new Date(),
       };
-
+  
       const result = await messageCollection.insertOne(newMessage);
-
+  
       res.status(201).json({
-          status: true,
-          message: "Message sent successfully",
-          data: result.insertedId,
+        status: true,
+        message: "Message sent successfully",
+        data: result.insertedId,
       });
-
-  } catch (error) {
-      console.error(" Error sending message: ", error);
+  
+    } catch (error) {
+      console.error("Error sending message: ", error);
       res.status(500).json({ status: false, message: "Internal Server Error" });
-  }
-});
+    }
+  });
+  
 
 
 
