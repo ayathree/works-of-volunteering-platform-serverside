@@ -132,6 +132,27 @@ app.post('/profile', async (req, res) => {
         }).toArray();
         console.log("✅ User Replies: ", userReplies);
 
+        // fetch events created by user
+        const userEvents = await eventCollection.find({ creatorId: userId}).toArray();
+        console.log("user events: ", userEvents)
+
+        // extract event IDs
+        const eventIds =  userEvents.map(event => event._id);
+        console.log('Event IDs: ', eventIds);
+        // const userObjectId = new ObjectId(userId);
+
+        // fetch attenders on users events
+        const userAttendee = await addEventCollection.find({
+          // eventId: { $in: eventIds }, // Ensure eventId matches the correct type
+          attenderId: { $ne: userId }, // Ensure attenderId is also the correct type
+        }).toArray();
+        console.log("attender", userAttendee);
+         // Fetch events joined by user
+         const userJoins = await addEventCollection.find({ attenderId: userId }).toArray();
+         console.log("✅ User Posts: ", userJoins);
+
+
+
 
 
         return res.status(200).json({
@@ -140,7 +161,11 @@ app.post('/profile', async (req, res) => {
             data: {
                 ...userData,
                 posts: userPosts,
-                replies: userReplies
+                replies: userReplies,
+                events: userEvents,
+                attenders: userAttendee,
+                joiners: userJoins
+                
             }
         });
 
@@ -238,14 +263,28 @@ app.post('/addEvent', async (req, res) => {
         if (!user) {
             return res.status(404).json({ status: false, message: "User not found" });
         }
-        const { attenderId, eventCreatorId, eventId } = req.body;
-        console.log(req.body)
-    
-        // Check if user already joined
-        const existingEntry = await addEventCollection.findOne({ attenderId, eventId });
-        if (existingEntry) {
-            return res.status(400).json({ message: "You have already joined this event." });
-        }
+        // Ensure correct data types
+const attenderId = user._id; // ObjectId from authenticated user
+const { eventCreatorId, eventId } = req.body;
+
+
+// Check if the owner is trying to join their own event
+if (attenderId.toString() === eventCreatorId) {
+  return res.status(400).json({ message: "You cannot join your own event." });
+}
+
+// Check if user already joined
+const existingEntry = await addEventCollection.findOne({
+    attenderId: new ObjectId(attenderId), // Ensure ObjectId comparison
+    eventId: eventId, // Keep eventId as a string (No ObjectId conversion here)
+});
+
+console.log("Existing Entry:", existingEntry);
+
+if (existingEntry) {
+    return res.status(400).json({ message: "You have already joined this event." });
+}
+
     
         // Add new event entry
         const result = await addEventCollection.insertOne({
