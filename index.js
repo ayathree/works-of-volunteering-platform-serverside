@@ -55,7 +55,7 @@ app.post("/users", async (req, res) => {
       name,
       email,
       password: hashedPassword,
-      // role: "user", // Default role
+      
   };
 
   const result = await userCollection.insertOne(newUser);
@@ -66,7 +66,7 @@ app.post("/users", async (req, res) => {
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
 
-  // Case-insensitive email search
+
   const user = await userCollection.findOne({ email});
 
   if (!user) {
@@ -79,7 +79,7 @@ app.post("/login", async (req, res) => {
   }
 
   const token = jwt.sign({id:user._id, email: user.email }, JWT_SECRET, { expiresIn: "7d" });
-  // console.log("Generated Token:", token);
+ 
 
   res.json({
       message: "Login successful",
@@ -118,19 +118,19 @@ app.post('/profile', async (req, res) => {
 
         // Fetch posts created by user
         const userPosts = await postCollection.find({ creatorId: userId }).toArray();
-        console.log("✅ User Posts: ", userPosts);
+        console.log("User Posts: ", userPosts);
 
         // Extract post IDs
         const postIds = userPosts.map(post => post._id);
-        console.log("✅ Post IDs: ", postIds);
+        console.log("Post IDs: ", postIds);
 
 
-        // Fetch replies on user's posts (excluding their own replies)
+        // Fetch replies on user's posts 
         const userReplies = await messageCollection.find({
             postId: { $in: postIds },
-            senderId: { $ne: userId }  // Ensure sender is not the post owner
+            senderId: { $ne: userId } 
         }).toArray();
-        console.log("✅ User Replies: ", userReplies);
+        console.log("User Replies: ", userReplies);
 
         // fetch events created by user
         const userEvents = await eventCollection.find({ creatorId: userId}).toArray();
@@ -139,12 +139,12 @@ app.post('/profile', async (req, res) => {
         // extract event IDs
         const eventIds =  userEvents.map(event => event._id);
         console.log('Event IDs: ', eventIds);
-        // const userObjectId = new ObjectId(userId);
+        
 
         // fetch attenders on users events
         const userAttendee = await addEventCollection.find({
-          // eventId: { $in: eventIds }, // Ensure eventId matches the correct type
-          attenderId: { $ne: userId }, // Ensure attenderId is also the correct type
+          
+          attenderId: { $ne: userId }, 
         }).toArray();
         console.log("attender", userAttendee);
          // Fetch events joined by user
@@ -170,16 +170,10 @@ app.post('/profile', async (req, res) => {
         });
 
     } catch (error) {
-        console.error("❌ Error fetching profile: ", error);
+        console.error("Error fetching profile: ", error);
         return res.status(500).json({ status: false, message: "Something went wrong", error: error.message });
     }
 });
-
-
-
-
-
-  
 
 
 // event create operation
@@ -187,7 +181,7 @@ app.post('/allEvents',async(req,res)=>{
     try {
         // Extract token from headers
         const token = req.headers?.authorization?.split(" ")[1];
-        // console.log("Received Token:", token);
+       
 
         if (!token) {
             return res.status(401).json({ status: false, message: "Access Denied: No Token" });
@@ -195,7 +189,7 @@ app.post('/allEvents',async(req,res)=>{
 
         // Verify and decode the token for allPost
         const decoded = jwt.verify(token, JWT_SECRET);
-        // console.log("Decoded Token:", decoded);
+        
         if (!decoded?.id) {
             return res.status(400).json({ status: false, message: "Invalid Token" });
         }
@@ -275,8 +269,8 @@ if (attenderId.toString() === eventCreatorId) {
 
 // Check if user already joined
 const existingEntry = await addEventCollection.findOne({
-    attenderId: new ObjectId(attenderId), // Ensure ObjectId comparison
-    eventId: eventId, // Keep eventId as a string (No ObjectId conversion here)
+    attenderId: new ObjectId(attenderId), 
+    eventId: eventId, 
 });
 
 console.log("Existing Entry:", existingEntry);
@@ -410,10 +404,10 @@ app.post('/allMessages', async (req, res) => {
   
       // Save the new message
       const newMessage = {
-        postId: post._id,      // Correct postId
-        senderId: user._id,    // User sending the message
+        postId: post._id,      
+        senderId: user._id, // User sending the message
         message,
-        creatorId,             // Post creator
+        creatorId, // Post creator
         createdAt: new Date(),
       };
   
